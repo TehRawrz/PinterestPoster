@@ -15,13 +15,28 @@
  * @returns -1 if the post was never created, -2 if a post with the same title exists, or the ID
  *          of the post if successful.
  */
+function get_title($url){
+	$str = file_get_contents($url);
+	if(strlen($str)>0){
+		$str = trim(preg_replace('/\s+/', ' ', $str)); // supports line breaks inside <title>
+		preg_match("/\<title\>(.*)\<\/title\>/i",$str,$title); // ignore case
+		return $title[1];
+	}
+}
 function programmatically_create_post() {
+	$url='http://widgets.pinterest.com/v3/pidgets/boards/bradleyblose/my-stuff/pins/';
+	$json_O=json_decode(file_get_contents($url),true);
+	$id = $json_O['data']['pins'][0]['id'];
+	$titlelink = 'https://www.pinterest.com/pin/' . $id .'/';
+	$title = get_title($titlelink);
+	var_dump($title);
+	$original = $json_O['data']['pins'][0]['images']['237x']['url'];
+	$image_url = preg_replace('/237x/', '736x', $original);
+	$description = $json_O['data']['pins'][0]['description'];
 	// Initialize the page ID to -1. This indicates no action has been taken.
 	$post_id = -1;
 	// Setup the author, slug, and title for the post
 	$author_id = 1;
-	$slug = 'example-post';
-	$title = 'My Example Post';
 	$mytitle = get_page_by_title($title, OBJECT, 'post');
 	var_dump($mytitle);
 	// If the page doesn't already exist, then create it
@@ -32,14 +47,14 @@ function programmatically_create_post() {
 				'comment_status'	=>	'closed',
 				'ping_status'		=>	'closed',
 				'post_author'		=>	$author_id,
-				'post_name'			=>	$slug,
+				'post_name'			=>	$title,
 				'post_title'		=>	$title,
+				'post_content'		=> 	$description,
 				'post_status'		=>	'publish',
 				'post_type'			=>	'post'
 			)
 		);
 		//upload featured image
-		$image_url = 'http://media-cache-ak0.pinimg.com/736x/ef/8c/d4/ef8cd45b68f9b05caea1856c78a5d047.jpg';
 		$upload_dir = wp_upload_dir();
 		$image_data = file_get_contents($image_url);
 		$filename = basename($image_url);
@@ -61,6 +76,7 @@ function programmatically_create_post() {
 			$h = $img->getImageHeight();
 			$img->extentImage(250,250,($w-250)/2,($h-250)/2);
 			$img->writeImage($targetThumb);
+			unlink($file);
 			//Attach featured image
 			$wp_filetype = wp_check_filetype($pngfilename, null );
 				$attachment = array(
